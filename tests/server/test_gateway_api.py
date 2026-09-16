@@ -34,6 +34,7 @@ from mlflow.gateway.config import (
     OpenAIConfig,
     PortkeyConfig,
     VertexAIConfig,
+    _OpenAICompatibleConfig,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.guardrails import _SANITIZE_BYPASS_HEADER, JudgeGuardrail
@@ -42,6 +43,7 @@ from mlflow.gateway.providers.base import (
     FallbackProvider,
     TrafficRouteProvider,
 )
+from mlflow.gateway.providers.daoxe import DaoxeProvider
 from mlflow.gateway.providers.databricks import DatabricksConfig, DatabricksProvider
 from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.providers.litellm import LiteLLMProvider
@@ -434,6 +436,43 @@ def test_create_provider_from_endpoint_name_portkey(store: SqlAlchemyStore):
         "x-portkey-config": "pc-test-789",
         "Authorization": "Bearer sk-upstream-456",
     }
+
+
+def test_create_provider_from_endpoint_name_daoxe(store: SqlAlchemyStore):
+    # DaoXE is an OpenAI-compatible named gateway: api_key flows from
+    # secret_value and an optional api_base override from auth_config.
+    secret = store.create_gateway_secret(
+        secret_name="daoxe-key",
+        secret_value={"api_key": "sk-daoxe-123"},
+        provider="daoxe",
+        auth_config={"api_base": "https://api.daoxe.com/v1"},
+    )
+    model_def = store.create_gateway_model_definition(
+        name="daoxe-model",
+        secret_id=secret.secret_id,
+        provider="daoxe",
+        model_name="claude-sonnet-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-daoxe-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, DaoxeProvider)
+    provider_config = provider.config.model.config
+    assert isinstance(provider_config, _OpenAICompatibleConfig)
+    assert provider_config.api_key == "sk-daoxe-123"
+    assert provider._api_base == "https://api.daoxe.com/v1"
 
 
 def test_create_provider_from_endpoint_name_gemini(store: SqlAlchemyStore):

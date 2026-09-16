@@ -37,6 +37,7 @@ The AI Gateway supports providers across these categories:
 | **Ollama**       | Yes  | Yes        | Local models                         |
 | **Databricks**   | Yes  | Yes        | Foundation Model APIs                |
 | **Portkey**      | Yes  | Yes        | Unified gateway for any LLM provider |
+| **DaoXE**        | Yes  | Yes        | OpenAI-compatible multi-model API    |
 
 For a complete list of supported providers, view the provider dropdown when creating an endpoint or see the [LiteLLM documentation](https://docs.litellm.ai/docs/providers).
 
@@ -306,6 +307,35 @@ print(response.choices[0].message.content)
 ```
 
 See [Portkey documentation](https://portkey.ai/docs) for the full list of supported models and configuration options.
+
+### DaoXE
+
+[DaoXE](https://daoxe.com) provides a single OpenAI-compatible API for many upstream LLM providers.
+
+When creating a DaoXE endpoint:
+
+1. Select **DaoXE** as the provider
+2. Enter your DaoXE API key
+3. Enter your DaoXE base URL (e.g. `https://api.daoxe.com/v1`)
+4. Enter the model name as listed by your DaoXE account's `/v1/models` endpoint
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:5000/gateway/openai/v1",
+    api_key="dummy",  # Not needed, configured server-side
+)
+
+response = client.chat.completions.create(
+    model="my-daoxe-endpoint",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(response.choices[0].message.content)
+```
+
+You can list the model names available to your DaoXE account by calling `/v1/models`
+on the DaoXE API.
 
 ## Model Capabilities
 
